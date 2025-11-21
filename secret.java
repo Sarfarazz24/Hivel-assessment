@@ -5,7 +5,6 @@ import java.util.regex.*;
 
 public class secret {
     
-    
     public static BigInteger baseToDecimal(String value, int base) {
         return new BigInteger(value, base);
     }
@@ -15,19 +14,18 @@ public class secret {
         BigInteger constant = BigInteger.ZERO;
         
         for (int i = 0; i < k; i++) {
-            BigInteger li = BigInteger.ONE;  // Lagrange basis polynomial
+            BigInteger numerator = BigInteger.ONE;
+            BigInteger denominator = BigInteger.ONE;
             
             for (int j = 0; j < k; j++) {
                 if (i != j) {
-                    // Calculate L_i(0) = product of (-xj)/(xi - xj)
-                    BigInteger numerator = BigInteger.ZERO.subtract(points.get(j).x);
-                    BigInteger denominator = points.get(i).x.subtract(points.get(j).x);
-                    li = li.multiply(numerator).divide(denominator);
+                    numerator = numerator.multiply(points.get(j).x.negate());
+                    denominator = denominator.multiply(points.get(i).x.subtract(points.get(j).x));
                 }
             }
             
-            // Add weighted y value
-            constant = constant.add(points.get(i).y.multiply(li));
+            BigInteger term = points.get(i).y.multiply(numerator).divide(denominator);
+            constant = constant.add(term);
         }
         
         return constant;
@@ -35,11 +33,9 @@ public class secret {
     
     public static void main(String[] args) {
         try {
-            // Read the JSON file
             String jsonContent = new String(java.nio.file.Files.readAllBytes(
                 java.nio.file.Paths.get("testcase.json")));
             
-            // Parse n and k values
             Pattern nPattern = Pattern.compile("\"n\"\\s*:\\s*(\\d+)");
             Pattern kPattern = Pattern.compile("\"k\"\\s*:\\s*(\\d+)");
             
@@ -50,26 +46,25 @@ public class secret {
             if (nMatcher.find()) n = Integer.parseInt(nMatcher.group(1));
             if (kMatcher.find()) k = Integer.parseInt(kMatcher.group(1));
             
-            // Extract all points from JSON
             List<Point> points = new ArrayList<>();
+            
             Pattern pointPattern = Pattern.compile(
-                "\"(\\d+)\"\\s*:\\s*\\{[^}]*\"base\"\\s*:\\s*\"(\\d+)\"[^}]*\"value\"\\s*:\\s*\"([^\"]+)\""
+                "\"(\\d+)\"\\s*:\\s*\\{[^}]*\"base\"\\s*:\\s*\"(\\d+)\"[^}]*\"value\"\\s*:\\s*\"([a-zA-Z0-9]+)\""
             );
             
             Matcher pointMatcher = pointPattern.matcher(jsonContent);
             
             while (pointMatcher.find() && points.size() < k) {
-                int x = Integer.parseInt(pointMatcher.group(1));
+                int xValue = Integer.parseInt(pointMatcher.group(1));
                 int base = Integer.parseInt(pointMatcher.group(2));
                 String value = pointMatcher.group(3);
                 
-                BigInteger xCoord = BigInteger.valueOf(x);
-                BigInteger yCoord = baseToDecimal(value, base);
+                BigInteger x = BigInteger.valueOf(xValue);
+                BigInteger y = baseToDecimal(value, base);
                 
-                points.add(new Point(xCoord, yCoord));
+                points.add(new Point(x, y));
             }
             
-            // Calculate and print the constant term
             BigInteger result = calculateConstant(points);
             System.out.println(result);
             
@@ -78,7 +73,6 @@ public class secret {
         }
     }
     
-    // Simple Point class to hold coordinates
     static class Point {
         BigInteger x;
         BigInteger y;
